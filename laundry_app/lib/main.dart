@@ -3,24 +3,57 @@ import 'dart:convert';
 import 'dart:ffi';
 
 import 'package:flutter/material.dart';
+import "package:collection/collection.dart";
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class ForecastEvent {
+  final String dateKey;
   final double cloudScore;
   final double humidityScore;
   final double isgoodScore;
 
   const ForecastEvent({
+    required this.dateKey,
     required this.cloudScore,
     required this.humidityScore,
     required this.isgoodScore,
   });
 
   factory ForecastEvent.fromJson(Map<String, dynamic> json) {
+    var cloudScore = json['clouds']['all'] * 1.0;
+    var humidityScore = json['main']['humidity'] * 1.0;
+    var dt = DateTime.fromMillisecondsSinceEpoch(json['dt'] * 1000);
+    var dateKey = DateFormat('EEEE MMM dd').format(dt);
     return ForecastEvent(
-        cloudScore: json['main']['humidity'] * 1.0,
-        humidityScore: json['clouds']['all'] * 1.0,
-        isgoodScore: 0);
+        dateKey: dateKey,
+        cloudScore: cloudScore,
+        humidityScore: humidityScore,
+        isgoodScore: (humidityScore < 85) & (cloudScore < 10) ? 1 : 0);
+  }
+}
+
+class ForecastEventSummary {
+  final String dateKey;
+  final double cloudScore;
+  final double humidityScore;
+  final double isgoodScore;
+
+  const ForecastEventSummary({
+    required this.dateKey,
+    required this.cloudScore,
+    required this.humidityScore,
+    required this.isgoodScore,
+  });
+
+  factory ForecastEventSummary.fromEvents(
+      String dateKey, List<ForecastEvent> events) {
+    return ForecastEventSummary(
+      dateKey: dateKey,
+      cloudScore: 0,
+      humidityScore: 0,
+      isgoodScore: 0,
+    );
   }
 }
 
@@ -30,6 +63,8 @@ class ForecastResponse {
   // final String title;
   final int cnt;
   final List<ForecastEvent> events;
+  final int cntSummaries;
+  final List<ForecastEventSummary> summaries;
 
   const ForecastResponse({
     // required this.userId,
@@ -37,10 +72,14 @@ class ForecastResponse {
     // required this.title,
     required this.cnt,
     required this.events,
+    required this.cntSummaries,
+    required this.summaries,
   });
 
   factory ForecastResponse.fromJson(Map<String, dynamic> json) {
     var events = [for (var e in json['list']) ForecastEvent.fromJson(e)];
+    var summaries = groupBy(events, (ForecastEvent p0) => p0.dateKey)
+        .map((dk, es) => MapEntry(dk, ForecastEventSummary.fromEvents(dk, es)));
 
     return ForecastResponse(
       // userId: json['userId'] as int,
@@ -48,6 +87,8 @@ class ForecastResponse {
       // title: json['title'] as String,
       cnt: json['cnt'] as int,
       events: events,
+      cntSummaries: summaries.length,
+      summaries: summaries.values.toList(),
     );
   }
 }
@@ -107,10 +148,12 @@ class _MyAppState extends State<MyApp> {
                 // parse the response
 
                 return ListView.builder(
-                  itemCount: snapshot.data!.cnt,
+                  itemCount: snapshot.data!.cntSummaries,
+                  // itemCount: snapshot.data!.cnt,
                   itemBuilder: (context, index) {
                     final item = HeadingItem(
-                        'CloudScore ${snapshot.data!.events[index].cloudScore.toString()}');
+                        // '${snapshot.data!.events[index].dateKey} ${snapshot.data!.events[index].cloudScore.toString()} ${snapshot.data!.events[index].isgoodScore.toString()}');
+                        '${snapshot.data!.summaries[index].dateKey} ${snapshot.data!.summaries[index].cloudScore.toString()} ${snapshot.data!.summaries[index].isgoodScore.toString()}');
 
                     return ListTile(
                       title: item.buildTitle(context),
