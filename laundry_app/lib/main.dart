@@ -50,9 +50,9 @@ class ForecastEventSummary {
       String dateKey, List<ForecastEvent> events) {
     return ForecastEventSummary(
       dateKey: dateKey,
-      cloudScore: 0,
-      humidityScore: 0,
-      isgoodScore: 0,
+      cloudScore: events.map((e) => e.cloudScore).average,
+      humidityScore: events.map((e) => e.humidityScore).average,
+      isgoodScore: events.map((e) => e.isgoodScore).average * 100,
     );
   }
 }
@@ -130,13 +130,13 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fetch Data Example',
+      title: 'Laundry Days',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Fetch Data Example'),
+          title: const Text('Laundry Days'),
         ),
         body: Center(
           child: FutureBuilder<ForecastResponse>(
@@ -151,9 +151,11 @@ class _MyAppState extends State<MyApp> {
                   itemCount: snapshot.data!.cntSummaries,
                   // itemCount: snapshot.data!.cnt,
                   itemBuilder: (context, index) {
-                    final item = HeadingItem(
-                        // '${snapshot.data!.events[index].dateKey} ${snapshot.data!.events[index].cloudScore.toString()} ${snapshot.data!.events[index].isgoodScore.toString()}');
-                        '${snapshot.data!.summaries[index].dateKey} ${snapshot.data!.summaries[index].cloudScore.toString()} ${snapshot.data!.summaries[index].isgoodScore.toString()}');
+                    // final item = HeadingItem(
+                    //     // '${snapshot.data!.events[index].dateKey} ${snapshot.data!.events[index].cloudScore.toString()} ${snapshot.data!.events[index].isgoodScore.toString()}');
+                    //     '${snapshot.data!.summaries[index].dateKey.split(' ')[0]} ${snapshot.data!.summaries[index].cloudScore.toInt().toString()} ${snapshot.data!.summaries[index].humidityScore.toInt().toString()} ${snapshot.data!.summaries[index].isgoodScore.toInt().toString()}');
+                    final item = ForecastEventSummaryItem(
+                        snapshot.data!.summaries[index]);
 
                     return ListTile(
                       title: item.buildTitle(context),
@@ -229,6 +231,65 @@ abstract class ListItem {
 
   /// The subtitle line, if any, to show in a list item.
   Widget buildSubtitle(BuildContext context);
+}
+
+class ForecastEventSummaryItem implements ListItem {
+  final ForecastEventSummary summary;
+
+  ForecastEventSummaryItem(this.summary);
+
+  @override
+  Widget buildTitle(BuildContext context) {
+    return Container(
+        height: 50,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: <Widget>[
+            Container(
+              width: 175,
+              padding: const EdgeInsets.all(8.0),
+              color: summary.isgoodScore < 50 ? Colors.blue[300] : Colors.blue[600],
+              alignment: Alignment.center,
+              transform: Matrix4.rotationZ(summary.isgoodScore < 50 ? 0.1 : 0),
+              child: Text(summary.dateKey.split(' ')[0],
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium!
+                      .copyWith(color: Colors.white)),
+            ),
+            Container(
+              width: 55,
+              alignment: Alignment.center,
+              color: Colors.blueGrey,
+              child: Text(
+                summary.cloudScore.toInt().toString(),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            Container(
+              width: 55,
+              alignment: Alignment.center,
+              color: Colors.blueAccent,
+              child: Text(
+                summary.humidityScore.toInt().toString(),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            Container(
+              width: 55,
+              alignment: Alignment.center,
+              color: Colors.greenAccent,
+              child: Text(
+                summary.isgoodScore.toInt().toString(),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+          ],
+        ));
+  }
+
+  @override
+  Widget buildSubtitle(BuildContext context) => const SizedBox.shrink();
 }
 
 /// A ListItem that contains data to display a heading.
