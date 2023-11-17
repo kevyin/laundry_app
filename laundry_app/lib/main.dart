@@ -9,38 +9,49 @@ import 'package:intl/intl.dart';
 
 class ForecastEvent {
   final String dateKey;
+  final double temp;
   final double cloudScore;
   final double humidityScore;
   final double isgoodScore;
+  final bool isDay;
 
   const ForecastEvent({
     required this.dateKey,
+    required this.temp,
     required this.cloudScore,
     required this.humidityScore,
     required this.isgoodScore,
+    required this.isDay,
   });
 
   factory ForecastEvent.fromJson(Map<String, dynamic> json) {
     var cloudScore = json['clouds']['all'] * 1.0;
     var humidityScore = json['main']['humidity'] * 1.0;
+    var temp = json['main']['temp'] * 1.0;
     var dt = DateTime.fromMillisecondsSinceEpoch(json['dt'] * 1000);
     var dateKey = DateFormat('EEEE MMM dd').format(dt);
+    int hour = int.parse(DateFormat('H').format(dt));
+    bool isDay = hour >= 9 && hour <= 18;
     return ForecastEvent(
         dateKey: dateKey,
+        temp: temp,
         cloudScore: cloudScore,
         humidityScore: humidityScore,
-        isgoodScore: (humidityScore < 85) & (cloudScore < 10) ? 1 : 0);
+        isgoodScore: (humidityScore < 85) & (cloudScore < 10) ? 1 : 0,
+        isDay: isDay);
   }
 }
 
 class ForecastEventSummary {
   final String dateKey;
+  final double temp;
   final double cloudScore;
   final double humidityScore;
   final double isgoodScore;
 
   const ForecastEventSummary({
     required this.dateKey,
+    required this.temp,
     required this.cloudScore,
     required this.humidityScore,
     required this.isgoodScore,
@@ -50,9 +61,12 @@ class ForecastEventSummary {
       String dateKey, List<ForecastEvent> events) {
     return ForecastEventSummary(
       dateKey: dateKey,
-      cloudScore: events.map((e) => e.cloudScore).average,
-      humidityScore: events.map((e) => e.humidityScore).average,
-      isgoodScore: events.map((e) => e.isgoodScore).average * 100,
+      temp: events.where((e) => e.isDay).map((e) => e.temp).average,
+      cloudScore: events.where((e) => e.isDay).map((e) => e.cloudScore).average,
+      humidityScore:
+          events.where((e) => e.isDay).map((e) => e.humidityScore).average,
+      isgoodScore:
+          events.where((e) => e.isDay).map((e) => e.isgoodScore).average * 100,
     );
   }
 }
@@ -246,9 +260,11 @@ class ForecastEventSummaryItem implements ListItem {
           scrollDirection: Axis.horizontal,
           children: <Widget>[
             Container(
-              width: 175,
+              width: 145,
               padding: const EdgeInsets.all(8.0),
-              color: summary.isgoodScore < 50 ? Colors.blue[300] : Colors.blue[600],
+              color: summary.isgoodScore < 50
+                  ? Colors.blue[300]
+                  : Colors.blue[600],
               alignment: Alignment.center,
               transform: Matrix4.rotationZ(summary.isgoodScore < 50 ? 0.1 : 0),
               child: Text(summary.dateKey.split(' ')[0],
@@ -256,6 +272,15 @@ class ForecastEventSummaryItem implements ListItem {
                       .textTheme
                       .headlineMedium!
                       .copyWith(color: Colors.white)),
+            ),
+            Container(
+              width: 55,
+              alignment: Alignment.center,
+              color: Colors.yellow,
+              child: Text(
+                summary.temp.toInt().toString(),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
             Container(
               width: 55,
