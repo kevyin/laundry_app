@@ -14,6 +14,7 @@ class ForecastEvent {
   final double humidityScore;
   final double isgoodScore;
   final bool isDay;
+  final int hour;
 
   const ForecastEvent({
     required this.dateKey,
@@ -22,27 +23,30 @@ class ForecastEvent {
     required this.humidityScore,
     required this.isgoodScore,
     required this.isDay,
+    required this.hour,
   });
 
   factory ForecastEvent.fromJson(Map<String, dynamic> json) {
     var cloudScore = json['clouds']['all'] * 1.0;
     var humidityScore = json['main']['humidity'] * 1.0;
     var temp = json['main']['temp'] * 1.0;
-    var dt = DateTime.fromMillisecondsSinceEpoch(json['dt'] * 1000);
+    var dt = DateTime.fromMillisecondsSinceEpoch(json['dt'] * 1000).toLocal();
     var dateKey = DateFormat('EEEE MMM dd').format(dt);
     int hour = int.parse(DateFormat('H').format(dt));
-    bool isDay = hour >= 9 && hour <= 18;
+    bool isDay = hour >= 9 && hour <= 19;
     return ForecastEvent(
         dateKey: dateKey,
         temp: temp,
         cloudScore: cloudScore,
         humidityScore: humidityScore,
         isgoodScore: (humidityScore < 85) & (cloudScore < 10) ? 1 : 0,
-        isDay: isDay);
+        isDay: isDay,
+        hour: hour);
   }
 }
 
 class ForecastEventSummary {
+  final bool isNotEmpty;
   final String dateKey;
   final double temp;
   final double cloudScore;
@@ -50,6 +54,7 @@ class ForecastEventSummary {
   final double isgoodScore;
 
   const ForecastEventSummary({
+    required this.isNotEmpty,
     required this.dateKey,
     required this.temp,
     required this.cloudScore,
@@ -59,34 +64,35 @@ class ForecastEventSummary {
 
   factory ForecastEventSummary.fromEvents(
       String dateKey, List<ForecastEvent> events) {
+    var dayEvents = events.where((e) => e.isDay);
+    var isNotEmpty = dayEvents.isNotEmpty;
     return ForecastEventSummary(
+      isNotEmpty: isNotEmpty,
       dateKey: dateKey,
-      temp: events.where((e) => e.isDay).map((e) => e.temp).average,
-      cloudScore: events.where((e) => e.isDay).map((e) => e.cloudScore).average,
-      humidityScore:
-          events.where((e) => e.isDay).map((e) => e.humidityScore).average,
-      isgoodScore:
-          events.where((e) => e.isDay).map((e) => e.isgoodScore).average * 100,
+      temp: isNotEmpty
+          ? events.where((e) => e.isDay).map((e) => e.temp).average
+          : 0,
+      cloudScore: isNotEmpty
+          ? events.where((e) => e.isDay).map((e) => e.cloudScore).average
+          : 0,
+      humidityScore: isNotEmpty
+          ? events.where((e) => e.isDay).map((e) => e.humidityScore).average
+          : 0,
+      isgoodScore: isNotEmpty
+          ? events.where((e) => e.isDay).map((e) => e.isgoodScore).average * 100
+          : 0,
     );
   }
 }
 
 class ForecastResponse {
-  // final int userId;
-  // final int id;
-  // final String title;
   final int cnt;
   final List<ForecastEvent> events;
-  final int cntSummaries;
   final List<ForecastEventSummary> summaries;
 
   const ForecastResponse({
-    // required this.userId,
-    // required this.id,
-    // required this.title,
     required this.cnt,
     required this.events,
-    required this.cntSummaries,
     required this.summaries,
   });
 
@@ -101,8 +107,7 @@ class ForecastResponse {
       // title: json['title'] as String,
       cnt: json['cnt'] as int,
       events: events,
-      cntSummaries: summaries.length,
-      summaries: summaries.values.toList(),
+      summaries: summaries.values.toList().where((e) => e.isNotEmpty).toList(),
     );
   }
 }
@@ -162,7 +167,7 @@ class _MyAppState extends State<MyApp> {
                 // parse the response
 
                 return ListView.builder(
-                  itemCount: snapshot.data!.cntSummaries,
+                  itemCount: snapshot.data!.summaries.length,
                   // itemCount: snapshot.data!.cnt,
                   itemBuilder: (context, index) {
                     // final item = HeadingItem(
